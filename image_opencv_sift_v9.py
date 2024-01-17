@@ -237,10 +237,16 @@ def writing_ome_tif(FRAMES = np.zeros((2,512,512)),
 
 # Check to make sure that the image is not taller or wider than the sint16 (signed 16-bit integer limit) 
 # if the image is larger then we need to resize it before starting or the final file alignment will fail.
-if he_image.shape[0] > 32766:
+if ((he_image.shape[0] > 32766) and (he_image.shape[1] > 32766)):
+    if he_image.shape[0] > he_image.shape[1]:
+        scale = he_image.shape[0]/32766
+    else:
+        scale = he_image.shape[1]/32766
+    he_image = cv2.resize(he_image, (int(he_image.shape[1]//scale), int(he_image.shape[0]//scale)), interpolation = cv2.INTER_AREA)
+elif he_image.shape[0] > 32766:
     print("image height is larger than the signed 16-bit integer limit. The image needs to be re-scaled prior to alignment. Output aligned image will be a sligtly lower resolution image as a result.")
     scale = he_image.shape[0]/32766
-    he_image = cv2.resize(he_image, (he_image.shape[1]//scale, he_image.shape[0]//scale), interpolation = cv2.INTER_AREA)
+    he_image = cv2.resize(he_image, (int(he_image.shape[1]//scale), int(he_image.shape[0]//scale)), interpolation = cv2.INTER_AREA)
 elif he_image.shape[1] > 32766:
     print("image width is larger than the signed 16-bit integer limit. The image needs to be re-scaled prior to alignment. Output aligned image will be a sligtly lower resolution image as a result.")
     scale = he_image.shape[1]/32766
