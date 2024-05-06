@@ -22,7 +22,7 @@ To run this pipeline you need only 2 input files:
 ## Example commands
 To run this tool you need a python environment with numpy, OpenCV (cv2), tifffile, and optparse, (future plan to also use ome_types package). I have tested this in python 3.9 and python 3.10. You can clone the environment I have previously used to run the tools as follows:
 ```
-conda create --name hexsift --file py3.10_spec_file_2023-10-16.txt
+conda create --name hexsift --file py3.10_spec_file_2024-05-06.txt
 conda env create -f py3.10_environment.yml --name hexsift
 ```
 If you do not yet have Anaconda installed on your lab cluster then please see the [Conda Installation on Linux](https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html) guide for how to do so.
@@ -89,6 +89,4 @@ A brief description of the remaining files:
 If you plan on importing the image into Xenium Explorer then you should do so using the `he_aligned.ome.tif` image. To do so open the `experiment.xenium` file from the Xenium output files. Then select the "Image" drop down. Click the "Add image" button. Click "Import Image". Navigate to your downloaded `he_aligned.ome.tif` file and select it. Wait for a the browser to show a window with a small version of your H&E image (this may take a minute or two). Give the H&E image a name and click "Continue". At the next pop-up select "Yes, skip alignment" and click "Done".
 
 ## Troubleshooting
-* Error cv2.error: OpenCV(4.6.0) /croot/opencv-suite_1691620365762/work/modules/imgproc/src/imgwarp.cpp:1724: error: (-215:Assertion failed) dst.cols < SHRT_MAX && dst.rows < SHRT_MAX && src.cols < SHRT_MAX && src.rows < SHRT_MAX in function 'remap' 
-    * Solution: this error results because the aligned image is larger than the signed 16-bit integer limit (16-bit signed integer ranging from -32,768 to +32,767). I have now updated the script to resize images before keypoint, homography, and image warp so that the largest dimension is less than 32766 pixels. Any image larger than this will result in a crash in the openCV cv2.warpPerspective() function. There were two options for addressing this 1. using either a tiling approach or 2. first scaling the image down and then scaling it back up. If we used a tiling approach each tile has to be aligned separately and would then need to be stiched together. Stitching would require image alignment to each other after dapi alignment which could reduce the quality of the dapi alignment. Scaling will result in some loss of information and may not be a good solution for large pieces of tissue where 1 piece takes up the full xenium slide. I am not sure how much signal loss this will result in, but the final H&E image will at least be aligned optimally with the dapi image, which is something that stitching may not do.
-        * Decided to go with the Image rescaling solution since optimal Xenium alignment is the current goal. It is done by first checking if any of the image dimensions are larger than 32766 pixels long. If the image is smaller, then that image is left unchanged. The unscaled image is then aligned. If the image is larger than that limit, then it is scaled down so that the largest image dimension is 1 pixel smaller than the 16-bit signed integer limit. The scaled down image is then aligned.
+
