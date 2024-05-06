@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import tifffile
+import skimage
 from optparse import OptionParser
 from ome_types import from_tiff, from_xml, to_xml, model
 from ome_types.model.simple_types import UnitsLength
@@ -237,20 +238,20 @@ def writing_ome_tif(FRAMES = np.zeros((2,512,512)),
 
 # Check to make sure that the image is not taller or wider than the sint16 (signed 16-bit integer limit) 
 # if the image is larger then we need to resize it before starting or the final file alignment will fail.
-if ((he_image.shape[0] > 32766) and (he_image.shape[1] > 32766)):
-    if he_image.shape[0] > he_image.shape[1]:
-        scale = he_image.shape[0]/32766
-    else:
-        scale = he_image.shape[1]/32766
-    he_image = cv2.resize(he_image, (int(he_image.shape[1]//scale), int(he_image.shape[0]//scale)), interpolation = cv2.INTER_AREA)
-elif he_image.shape[0] > 32766:
-    print("image height is larger than the signed 16-bit integer limit. The image needs to be re-scaled prior to alignment. Output aligned image will be a sligtly lower resolution image as a result.")
-    scale = he_image.shape[0]/32766
-    he_image = cv2.resize(he_image, (int(he_image.shape[1]//scale), int(he_image.shape[0]//scale)), interpolation = cv2.INTER_AREA)
-elif he_image.shape[1] > 32766:
-    print("image width is larger than the signed 16-bit integer limit. The image needs to be re-scaled prior to alignment. Output aligned image will be a sligtly lower resolution image as a result.")
-    scale = he_image.shape[1]/32766
-    he_image = cv2.resize(he_image, (int(he_image.shape[1]//scale), int(he_image.shape[0]//scale)), interpolation = cv2.INTER_AREA)
+#if ((he_image.shape[0] > 32766) and (he_image.shape[1] > 32766)):
+#    if he_image.shape[0] > he_image.shape[1]:
+#        scale = he_image.shape[0]/32766
+#    else:
+#        scale = he_image.shape[1]/32766
+#    he_image = cv2.resize(he_image, (int(he_image.shape[1]//scale), int(he_image.shape[0]//scale)), interpolation = cv2.INTER_AREA)
+#elif he_image.shape[0] > 32766:
+#    print("image height is larger than the signed 16-bit integer limit. The image needs to be re-scaled prior to alignment. Output aligned image will be a sligtly lower resolution image as a result.")
+#    scale = he_image.shape[0]/32766
+#    he_image = cv2.resize(he_image, (int(he_image.shape[1]//scale), int(he_image.shape[0]//scale)), interpolation = cv2.INTER_AREA)
+#elif he_image.shape[1] > 32766:
+#    print("image width is larger than the signed 16-bit integer limit. The image needs to be re-scaled prior to alignment. Output aligned image will be a sligtly lower resolution image as a result.")
+#    scale = he_image.shape[1]/32766
+#    he_image = cv2.resize(he_image, (int(he_image.shape[1]//scale), int(he_image.shape[0]//scale)), interpolation = cv2.INTER_AREA)
 
 # if the image needs
 if options.flip:
@@ -326,9 +327,12 @@ he_image_gray_small_filter = cv2.bitwise_not(he_image_gray_small_invert_filter)
 cv2.imwrite('he_masked.tif', he_image_gray_small_filter)
 
 print("Finding keypoints and descriptors")
+
 sift = cv2.SIFT_create()
 kp1, des1 = sift.detectAndCompute(dapi_image_inverted_small, None)
+print("Found Dapi Keypoints")
 kp2, des2 = sift.detectAndCompute(he_image_gray_small_filter, None)
+print("Found H&E keypoints")
 
 #keypoint_list_to_dump = []
 #for i in range(len(kp1)):
@@ -385,26 +389,26 @@ good = good_matches
 print("Aligning_small")
 canvas = he_image_gray_small_filter.copy()
 MIN_MATCH_COUNT = 4
-## (7) find homography matrix
-## When there are enough robust matching point pairs (at least 4)
-if len(good)>MIN_MATCH_COUNT:
-    ## Extract corresponding point pairs from matches
-    ## queryIndex for the small object, trainIndex for the scene
+# find homography matrix
+# When there are enough robust matching point pairs (at least 4)
+if len(good) > MIN_MATCH_COUNT:
+    # Extract corresponding point pairs from matches
+    # queryIndex for the small object, trainIndex for the scene
     src_pts = np.float32([ kp1[m.queryIdx].pt for m in good ]).reshape(-1,1,2)
     #print(src_pts)
     dst_pts = np.float32([ kp2[m.trainIdx].pt for m in good ]).reshape(-1,1,2)
     #print(dst_pts)
-    ## find homography matrix in cv2.RANSAC using good match points
+    # find homography matrix in cv2.RANSAC using good match points
     M, mask = cv2.findHomography(src_pts, dst_pts, cv2.LMEDS, 5.0)
     #print(M)
-    ##  Mask, used to draw the point pairs used in calculating the homography matrix
+    # Mask, used to draw the point pairs used in calculating the homography matrix
     #matchesMask2 = mask.ravel().tolist()
-    ## Calculate the distortion in Figure 1, which is the corresponding position in Figure 2.
+    # Calculate the distortion in Figure 1, which is the corresponding position in Figure 2.
     h,w = dapi_image_inverted_small.shape[:2]
     pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
     #print(pts)
     dst = cv2.perspectiveTransform(pts,M)
-    ## Draw border
+    # Draw border
     cv2.polylines(canvas,[np.int32(dst)],True,(0,255,0),3, cv2.LINE_AA)
 else:
     print( "Not enough matches are found - {}/{}".format(len(good),MIN_MATCH_COUNT))
@@ -422,11 +426,24 @@ dst = cv2.perspectiveTransform(pts,M)
 #print("dst",dst)
 perspectiveM = cv2.getPerspectiveTransform(np.float32(dst),pts)
 #print("persepectiveM", perspectiveM)
-found = cv2.warpPerspective(he_image_gray_small,perspectiveM,(w,h))
-
+#found = cv2.warpPerspective(he_image_gray_small,perspectiveM,(w,h))
+#print("dtype before multiplied by 255.0",he_image_gray_small.dtype)
+#print("np.max() before multiply by 255.0",np.max(he_image_gray_small))
+found = skimage.transform.warp(he_image_gray_small, np.linalg.inv(perspectiveM),clip=False,output_shape=(h, w))
+#print("dtype post warp, pre multiply by 255.0",found.dtype)
+#print("np.max() post warp, pre multiply by 255.0",np.max(found))
+#info = np.iinfo(found) # Get the information of the incoming image type
+#found = found.astype(np.float64) / np.max(found) # normalize the data to 0 - 1
+# skimage.transform.warp() rescales the image to values between 0 and 1. To save the image we need to scale it back to the 0-255 scale of an 8 bit unsigned integer. 
+found = 255 * found # Now scale by 255
+found = found.astype(np.uint8)
+print("dtype multiplied by 255.0",found.dtype)
+print("np.max() multiplied by 255.0",np.max(found))
 ## (10) save and display
-cv2.imwrite("matched.tif", matched)
-cv2.imwrite("found.tif", found)
+#cv2.imwrite("matched.tif", matched)
+#cv2.imwrite("found.tif", found)
+skimage.io.imsave("matched.tif", matched)
+skimage.io.imsave("found.tif", found)
 print("Small image aligned")
 print("Aligning large image")
 
@@ -466,12 +483,16 @@ dst = cv2.perspectiveTransform(pts,scaled_M)
 cv2.polylines(canvas_large,[np.int32(dst)],True,(0,255,0),3, cv2.LINE_AA)
 perspectiveM_large = cv2.getPerspectiveTransform(np.float32(dst),pts)
 
-found_large = cv2.warpPerspective(he_image_gray,perspectiveM_large,(w,h))
-cv2.imwrite("found_full_res.tif", found_large)
-
+#found_large = cv2.warpPerspective(he_image_gray,perspectiveM_large,(w,h))
+found_large = skimage.transform.warp(he_image_gray, np.linalg.inv(perspectiveM_large),clip=False,output_shape=(h, w)) * 255
+#cv2.imwrite("found_full_res.tif", found_large)
+found_large = found_large.astype(np.uint8)
+skimage.io.imsave("found_full_res.tif", found_large)
 # he_image_recolor = cv2.cvtColor(he_image_flip, cv2.COLOR_BGR2RGB)
 # he_aligned = cv2.warpPerspective(he_image_recolor,perspectiveM_large,(w,h))
-he_aligned = cv2.warpPerspective(he_image_flip,perspectiveM_large,(w,h))
+#he_aligned = cv2.warpPerspective(he_image_flip,perspectiveM_large,(w,h))
+he_aligned = skimage.transform.warp(he_image_flip, np.linalg.inv(perspectiveM_large),clip=False,output_shape=(h, w)) * 255
+he_aligned = he_aligned.astype(np.uint8)
 #cv2.imwrite("he_aligned.tif", he_aligned)
 with open(r"he_aligned.pickle", "wb") as output_file:
     pickle.dump(he_aligned, output_file)
