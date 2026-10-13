@@ -6,17 +6,33 @@ Xenium is a partially-destructive, highly multiplexed in-situ hybridization meth
 To run this pipeline you need only 2 input files:
 1. the dapi image from the xenium run. This is found in the Xenium output run folder and is called either `morphology_mip.ome.tif` or `morphology_focus/morphology_focus_000X.ome.tif` (replace X with an integer 1 through 4).
 1. the image of the stained slide. The input image can be a .qptiff, a .tiff, a .tif, or a .ome.tif file. I haven't tried other image formats. For consistency I am currently using .ome.tif files generated in the following manner.
-    - In some instances if an image of the entire slide is taken and you may want to first crop out the region of interest with the desired piece of tissue on it. To do this follow the below instructions sourced from https://forum.image.sc/t/how-to-crop-an-image/73550:
-        - Open the H&E image with [QuPath](https://qupath.github.io/) . If given the option to "generate a pyramid dynamically" from the image when opening it in QuPath do so.
-        - Select the rectangular annotation drawing tool in the top left (alternatively: from the top menu drop-down Tools > rectangle)
-        - Draw a rectangular box around the tissue that matches the desired Xenium sample. Do not click anywhere else in the image. The box needs to stay selected (yellow). If it is not selected (yellow), then you need to click the edge of the box so it is selected (yellow). Alternatively you can go to the Annotations tab on the left and click on the annotation that outlines the region you are trying to export. 
-        - While the box is still selected go to File > Export Images > OME TIFF.
-        - Change the settings to the following:
-            - Compression type: ZLIB (lossless)
-            - Pyramidal downsample: 2
-            - Tile size: 1024 px
-            - Parallelize export (if this is checked then it exports faster but takes more memory)
-    - if you initially align the one image and then retake the image with the a microsope you will need to re-align the second image to the Xenium dapi image and the results will differ.
+    - In some instances if an image of the entire slide is taken, you may want to first crop out the region of interest with the desired piece of tissue on it. This will usually improve alginment quality. To do this follow the below instructions sourced from https://forum.image.sc/t/how-to-crop-an-image/73550:
+        - To create a rectangular crop of stained crop you can do the following
+            - Open the H&E image with [QuPath](https://qupath.github.io/) . If given the option to "generate a pyramid dynamically" from the image when opening it in QuPath do so.
+            - Select the rectangular annotation drawing tool in the top left (alternatively: from the top menu drop-down Tools > rectangle)
+            - Draw a rectangular box around the tissue that matches the desired Xenium sample. Do not click anywhere else in the image. The box needs to stay selected (yellow). If it is not selected (yellow), then you need to click the edge of the box so it is selected (yellow). Alternatively you can go to the Annotations tab on the left and click on the annotation that outlines the region you are trying to export. 
+            - While the box is still selected go to File > Export Images > OME TIFF.
+            - Change the settings to the following:
+                - Compression type: ZLIB (lossless)
+                - Pyramidal downsample: 2
+                - Tile size: 1024 px
+                - Parallelize export (if this is checked then it exports faster but takes more memory)
+        - If you need to make a non-rectangular crop of the image (may be necessary if tissue is not properly spaced out on the xenium) then instead do the following:
+```
+# this script has two modes. the first used here makes an all black image that is the same size as the input image specified with -i (the below script works with .tif .qptiff, .ome.tiff input files. I have not tested others).
+# The second mode takes an image with white pixels outlining regions on the all black image. These regions are regions from the input image that are to be retained in the output of the second mode. The <name>_white_background.ome.tif output with the second mode (example below) may then be used as the stained input image for image_alignment_HE_to_xen_dapi_post_xoa_v3.0.py
+python3 HEX-SIFT/write_annotation_masked_image_v2.py -b -i /path/to/input_image.qptiff -n name_of_output_image_without_extension -d /path/to/crop/output/folder/
+# load the original H&E slide scan into QuPath and draw an annotation around the desired piece of tissue from the image specified by the above -i . Ideally this annotation does not contian any other pieces of tissue and minimal debris if there is any. Instructions for how to do this can be found here: https://qupath.readthedocs.io/en/stable/docs/starting/annotating.html#annotation-tools and https://qupath.github.io/workshop-intro/chapters/part2/how_do_i_draw_annotations.html#polygon-tool (I recommend the polygon tool).
+# Then save the annotation and closed the viewer containing the H&E section.
+# Load the all black image generated by HEX-SIFT/write_annotation_masked_image_v2.py into QuPath (can be in a new project or not so long as its in a new viewer) and import the annotation objects from the irregular shape annotation (qpdata file). Usually you can just drag and drop the .qpdata file. Annotation objects were then changed to white (see: https://qupath.readthedocs.io/en/stable/docs/starting/annotating.html). Then click outside of the annotation object so that it is not selected.
+# Export the rendered full image from QuPath using export > rendered RGB option > set export format to OME TIFF and Downsample factor to 1.0 before saving new rendered image: (rendered annotation saved as file: "HT535P1-S1H1Fp1U1_blank_annotated.ome.tif") This generates an all black image with the region that will be cropped out of the actual image outlined in white.
+python3 HEX-SIFT/write_annotation_masked_image_v2.py -i /path/to/input_image.qptiff -a renderedRGB_annotated_all_black_image.ome.tif -n name_of_output_crop -d /path/to/crop/output/folder/ -w 10
+# the name_of_output_crop_white_background.ome.tif file that is generated from the above command is not properly formatted input for HEX-SIFT. To fix this it can then be loaded back into into QuPath and exported as an OME TIF with the following settings:
+# compression type: ZLIB (lossless)
+# pyramidal downsample: 2.0
+# Tile size: 1024 px
+```
+    - If you initially align the one image and then retake the image with the a microsope you will need to re-align the second image to the Xenium dapi image and the results will differ.
     - If you want to re-take the image of a specific region of interest instead of the full slide, then you should still be able to align it with this tool by saving the image as a raw tif file, but I have not tested it. You will need to take a image large enough that sufficient keypoint matches are found and I do not know what that size might be. I typically use this script to align 20X magnification H&E images. I have not tested it on 40X images. The main reason for using 20X images is to save on memory and storage space.
 
 ## Example commands

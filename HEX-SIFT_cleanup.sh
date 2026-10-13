@@ -1,0 +1,13 @@
+rm ./*/channels.pickle
+rm ./*/dapi_gray_scale_target.tif
+rm ./*/found_full_res.tif
+rm ./*/found.tif
+rm ./*/he_blue.tif
+rm ./*/he_close.tif
+rm ./*/he_erode_2.tif
+rm ./*/he_green.tif
+rm ./*/he_masked.tif
+rm ./*/he_red.tif
+rm ./*/he_small.tif
+rm ./*/he_thresh.tif
+rm ./*/matched.tif
