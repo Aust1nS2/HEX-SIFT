@@ -32,8 +32,8 @@ python3 HEX-SIFT/write_annotation_masked_image_v2.py -i /path/to/input_image.qpt
 # pyramidal downsample: 2.0
 # Tile size: 1024 px
 ```
-    - If you initially align the one image and then retake the image with the a microsope you will need to re-align the second image to the Xenium dapi image and the results will differ.
-    - If you want to re-take the image of a specific region of interest instead of the full slide, then you should still be able to align it with this tool by saving the image as a raw tif file, but I have not tested it. You will need to take a image large enough that sufficient keypoint matches are found and I do not know what that size might be. I typically use this script to align 20X magnification H&E images. I have not tested it on 40X images. The main reason for using 20X images is to save on memory and storage space.
+
+If you initially align the one image and then retake the image with the a microsope you will need to re-align the second image to the Xenium dapi image and the results will differ. If you want to re-take the image of a specific region of interest instead of the full slide, then you should still be able to align it with this tool by saving the image as a raw tif file, but I have not tested it. You will need to take a image large enough that sufficient keypoint matches are found and I do not know what that size might be. I typically use this script to align 20X magnification H&E images. I have tested alginment of 40X images and in order to save on memory you typically need to use the `-s 1` option described below.
 
 ## Example commands
 To run this tool you need a python environment with numpy, OpenCV (cv2), tifffile, and optparse, (future plan to also use ome_types package). I have tested this in python 3.9 and python 3.10. You can clone the environment I have previously used to run the tools as follows:
@@ -65,12 +65,12 @@ There are 3 optional flags that can improve your results.
 ### Command
 The following are some example commands:
 
-NOTE: To date I have found the highest quality alignments to be generated when using the flags: `-b -s 0 -m 60`. However the total size of all the output files combined is much larger, it can use a lot more memory (200GB+ due to the number of keypoints being identified on the imge) and the script takes much longer to run (most of this additional time is just from writing all of the output files), also during SIFT keypoint detection the memory can easily take up half of a 500GB node if this option is used. Most of the output files are just QC and used to keep track of which parts of the image are used to generate the alignment. The equivalent to these commands that the script uses by default is `-s 4 -m 20` (uses closer to 30-70GB). A good middle ground is `-b -s 2 -m 40`. Increasing the number of matches used while keeping the scaling power (e.g. going from `-b -s 2 -m 40` to `-b -s 2 -m 60`) the same does not increase memory requirements significantly. Including more keypoint matches and using the full resolution image is not always a good thing as incorrect matches can still be found which is why we don't just use all keypoint matches. We only want to take the highest quality keypoint matches. The large memory problem is something that I am planning on addressing in the future. Note that the extreme memory usage can probably be addressed by tiling over the image when identifying keypoints (would then need to loop over all keypoints and check to make sure they are all unique) and I just haven't had time to do that yet, but plan to do so in the future.
+NOTE: To date I have found the highest quality alignments to be generated when using the flags: `-b -s 0 -m 60`. However the total size of all the output files combined is much larger, it can use a lot more memory (200GB+ due to the number of keypoints being identified on the imge) and the script takes much longer to run (most of this additional time is just from writing all of the output files), also during SIFT keypoint detection the memory can easily take up half of a 500GB node if this option is used. Most of the output files are just QC and used to keep track of which parts of the image are used to generate the alignment. The equivalent to these commands that the script uses by default is `-s 4 -m 20` (uses closer to 30-70GB). A good middle ground is `-b -s 2 -m 40`. If you are working with 40X images instead of 20X images then you can try using `-s 1 -m 60` or `-s 3 -m 40`. I have also had success with those. Increasing the number of matches used while keeping the scaling power (e.g. going from `-b -s 2 -m 40` to `-b -s 2 -m 60`) the same does not increase memory requirements significantly. Including more keypoint matches and using the full resolution image is not always a good thing as incorrect matches can still be found which is why we don't just use all keypoint matches. We only want to take the highest quality keypoint matches. The large memory problem is something that I am planning on addressing in the future. Note that the extreme memory usage can probably be addressed by tiling over the image when identifying keypoints (would then need to loop over all keypoints and check to make sure they are all unique) and I just haven't had time to do that yet, but plan to do so in the future.
 
 #### Commands post XOA v3
 It is recommended that you use this version for all future alignments.
 
-**Dapi only alignment example (recommended for most use cases):**
+**Dapi only alignment example 20X image (recommended for most use cases):**
 ```
 cd /folder/where/your/want/the/output/to/be/
 python3 /path/to/HEX-SIFT/image_alignment_HE_to_xen_dapi_post_xoa_v3.0.py -i /path/to/image_RAW.ome.tif -d /path/to/Xenium/output/folder/morphology_focus/morphology_focus_0000.ome.tif -b -s 4 -m 20
@@ -83,6 +83,11 @@ python3 /path/to/HEX-SIFT/image_alignment_HE_to_xen_dapi_post_xoa_v3.0.py -i /pa
 ```
 cd /folder/where/your/want/the/output/to/be/
 python3 /path/to/HEX-SIFT/image_alignment_HE_to_xen_dapi_post_xoa_v3.0.py -i /path/to/image_RAW.ome.tif -d /path/to/Xenium/output/folder/morphology_focus/morphology_focus_0000.ome.tif -b -s 0 -m 60
+```
+**Dapi only alignment example for 40X image:**
+```
+cd /folder/where/your/want/the/output/to/be/
+python3 /path/to/HEX-SIFT/image_alignment_HE_to_xen_dapi_post_xoa_v3.0.py -i /path/to/image_RAW.ome.tif -d /path/to/Xenium/output/folder/morphology_focus/morphology_focus_0000.ome.tif -b -s 1 -m 60
 ```
 **Multi-modal alignment example:** (less likely to be successful at lower -s values. While it is still possible to use the full multimodal image and only the blue channel of the H&E image as input it is not recommended that you do so (i.e. do not use -b)
 ```
